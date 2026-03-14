@@ -1,155 +1,63 @@
-// src/email.js — Serviço de e-mail com Resend
-const { Resend } = require('resend')
-const QRCode = require('qrcode')
-require('dotenv').config()
+const { Resend } = require('resend');
+const QRCode = require('qrcode');
 
-const resend = new Resend(process.env.RESEND_API_KEY)
+const resend = new Resend(process.env.RESEND_API_KEY);
 
-// Gera QR Code como base64 para embutir no e-mail
-async function gerarQRBase64(texto) {
+async function enviarEmailIngresso(compra) {
   try {
-    return await QRCode.toDataURL(texto, {
-      width: 256,
-      margin: 2,
-      color: { dark: '#000000', light: '#ffffff' }
-    })
-  } catch (e) {
-    console.error('Erro ao gerar QR Code:', e)
-    return null
-  }
-}
+    const qrDataUrl = await QRCode.toDataURL(
+      `${compra.codigo}|${compra.nome}|${compra.lote_nome}`,
+      { width: 200, margin: 2 }
+    );
 
-// E-mail de confirmação de compra
-async function enviarConfirmacao(pedido) {
-  const qrBase64 = await gerarQRBase64(
-    `${pedido.codigo}|${pedido.nome}|${pedido.lote_nome}`
-  )
-
-  const addonsHtml = pedido.addons_json && pedido.addons_json.length > 0
-    ? `<tr>
-        <td style="padding:12px 20px;border-bottom:1px solid #222;">
-          <strong style="color:#aaa;font-size:13px;">EXTRAS</strong><br>
-          <span style="color:#fff;">${pedido.addons_json.map(a => `${a.emoji} ${a.nome} ×${a.qty}`).join(', ')}</span>
-        </td>
-       </tr>`
-    : ''
-
-  const html = `
+    const html = `
 <!DOCTYPE html>
 <html>
-<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
-<body style="margin:0;padding:0;background:#080808;font-family:'DM Sans',Arial,sans-serif;">
-  <table width="100%" cellpadding="0" cellspacing="0" style="background:#080808;padding:40px 20px;">
-    <tr><td align="center">
-      <table width="600" cellpadding="0" cellspacing="0" style="background:#111;border-radius:12px;overflow:hidden;border:1px solid #222;">
-        
-        <!-- HEADER -->
-        <tr>
-          <td style="background:linear-gradient(135deg,#CC0000,#FF2020);padding:32px;text-align:center;">
-            <div style="font-family:'Bebas Neue',Impact,sans-serif;font-size:42px;letter-spacing:4px;color:#fff;line-height:1;">LOCUNI PASS</div>
-            <div style="color:rgba(255,255,255,0.8);font-size:14px;margin-top:6px;letter-spacing:2px;text-transform:uppercase;">Ingresso Confirmado</div>
-          </td>
-        </tr>
+<head><meta charset="UTF-8"></head>
+<body style="background:#050505;color:#F0E8E8;font-family:Arial,sans-serif;padding:0;margin:0;">
+  <div style="max-width:560px;margin:0 auto;padding:40px 20px;">
+    <div style="text-align:center;margin-bottom:32px;">
+      <h1 style="font-family:Georgia,serif;font-size:2.5rem;color:#FF1111;letter-spacing:4px;margin:0;">LOCUNI PASS</h1>
+      <p style="color:#555;font-size:.85rem;margin-top:6px;">Seu ingresso está confirmado</p>
+    </div>
 
-        <!-- MENSAGEM -->
-        <tr>
-          <td style="padding:32px 32px 16px;text-align:center;">
-            <div style="font-size:48px;margin-bottom:12px;">🎉</div>
-            <h1 style="color:#fff;font-size:24px;margin:0 0 8px;">Compra confirmada, ${pedido.nome.split(' ')[0]}!</h1>
-            <p style="color:#888;font-size:15px;margin:0;line-height:1.6;">Seu ingresso foi gerado com sucesso. Apresente o QR Code abaixo na entrada do evento.</p>
-          </td>
-        </tr>
-
-        <!-- QR CODE -->
-        <tr>
-          <td style="padding:24px;text-align:center;">
-            <div style="display:inline-block;background:#fff;padding:16px;border-radius:12px;">
-              ${qrBase64 ? `<img src="${qrBase64}" width="200" height="200" alt="QR Code" style="display:block;">` : ''}
-            </div>
-            <div style="margin-top:16px;background:#1a1a1a;border:1px dashed #CC0000;border-radius:6px;padding:12px 24px;display:inline-block;">
-              <span style="font-family:monospace;font-size:18px;color:#FF2020;letter-spacing:3px;">${pedido.codigo}</span>
-            </div>
-          </td>
-        </tr>
-
-        <!-- DETALHES -->
-        <tr>
-          <td style="padding:0 32px 24px;">
-            <table width="100%" cellpadding="0" cellspacing="0" style="background:#1a1a1a;border-radius:8px;overflow:hidden;border:1px solid #222;">
-              <tr>
-                <td style="padding:12px 20px;border-bottom:1px solid #222;">
-                  <strong style="color:#aaa;font-size:13px;">NOME</strong><br>
-                  <span style="color:#fff;">${pedido.nome}</span>
-                </td>
-              </tr>
-              <tr>
-                <td style="padding:12px 20px;border-bottom:1px solid #222;">
-                  <strong style="color:#aaa;font-size:13px;">INGRESSO</strong><br>
-                  <span style="color:#fff;">${pedido.lote_nome}</span>
-                </td>
-              </tr>
-              ${addonsHtml}
-              <tr>
-                <td style="padding:12px 20px;border-bottom:1px solid #222;">
-                  <strong style="color:#aaa;font-size:13px;">PAGAMENTO</strong><br>
-                  <span style="color:#fff;">${pedido.pagamento.toUpperCase()} ✅</span>
-                </td>
-              </tr>
-              <tr>
-                <td style="padding:12px 20px;">
-                  <strong style="color:#aaa;font-size:13px;">TOTAL PAGO</strong><br>
-                  <span style="color:#FF2020;font-size:22px;font-weight:700;">R$${Number(pedido.total).toFixed(2)}</span>
-                </td>
-              </tr>
-            </table>
-          </td>
-        </tr>
-
-        <!-- AVISO -->
-        <tr>
-          <td style="padding:0 32px 24px;">
-            <div style="background:rgba(255,215,0,0.08);border:1px solid rgba(255,215,0,0.3);border-radius:8px;padding:16px;">
-              <p style="margin:0;color:#FFD700;font-size:13px;line-height:1.7;">
-                ⚠️ <strong>Guarde este e-mail!</strong> O QR Code acima é seu ingresso. Não compartilhe com ninguém — ele é de uso único e pessoal.
-              </p>
-            </div>
-          </td>
-        </tr>
-
-        <!-- FOOTER -->
-        <tr>
-          <td style="padding:20px 32px;border-top:1px solid #222;text-align:center;">
-            <p style="color:#444;font-size:12px;margin:0;">© 2026 LOCUNI PASS · Todos os direitos reservados</p>
-          </td>
-        </tr>
-
+    <div style="background:#0e0e0e;border:1px solid #1c1c1c;border-top:3px solid #CC0000;padding:28px;margin-bottom:24px;">
+      <h2 style="font-size:1.1rem;font-weight:700;margin:0 0 20px;">🎫 Detalhes do Ingresso</h2>
+      <table style="width:100%;border-collapse:collapse;">
+        <tr><td style="padding:8px 0;color:#555;font-size:.85rem;">Código</td><td style="padding:8px 0;font-family:monospace;color:#FF1111;font-weight:700;">${compra.codigo}</td></tr>
+        <tr><td style="padding:8px 0;color:#555;font-size:.85rem;">Nome</td><td style="padding:8px 0;font-weight:600;">${compra.nome}</td></tr>
+        <tr><td style="padding:8px 0;color:#555;font-size:.85rem;">Lote</td><td style="padding:8px 0;">${compra.lote_nome}</td></tr>
+        <tr><td style="padding:8px 0;color:#555;font-size:.85rem;">Total Pago</td><td style="padding:8px 0;font-family:Georgia,serif;font-size:1.3rem;color:#FF1111;font-weight:700;">R$ ${Number(compra.total).toFixed(2)}</td></tr>
+        <tr><td style="padding:8px 0;color:#555;font-size:.85rem;">Data</td><td style="padding:8px 0;">${new Date(compra.criado_em || Date.now()).toLocaleDateString('pt-BR')}</td></tr>
       </table>
-    </td></tr>
-  </table>
-</body>
-</html>`
+    </div>
 
-  try {
-    const { data, error } = await resend.emails.send({
-      from: process.env.EMAIL_FROM || 'LOCUNI PASS <ingressos@seudominio.com.br>',
-      to: pedido.email,
-      subject: `🎫 Seu ingresso LOCUNI FEST 2026 — ${pedido.codigo}`,
+    <div style="text-align:center;background:#0e0e0e;border:1px solid #1c1c1c;padding:28px;margin-bottom:24px;">
+      <p style="color:#555;font-size:.85rem;margin-bottom:16px;">Apresente este QR Code na entrada do evento</p>
+      <img src="${qrDataUrl}" alt="QR Code" style="border:6px solid #fff;padding:10px;background:#fff;">
+      <p style="font-family:monospace;font-size:.9rem;color:#FF1111;margin-top:14px;letter-spacing:2px;">${compra.codigo}</p>
+    </div>
+
+    <div style="background:rgba(204,0,0,.08);border-left:3px solid #CC0000;padding:16px;margin-bottom:24px;">
+      <p style="margin:0;font-size:.83rem;color:#aaa;">⚠️ Este ingresso é pessoal e intransferível. Guarde o código em local seguro.</p>
+    </div>
+
+    <p style="text-align:center;color:#333;font-size:.75rem;">© 2026 LOCUNI PASS — Todos os direitos reservados</p>
+  </div>
+</body>
+</html>`;
+
+    await resend.emails.send({
+      from: process.env.EMAIL_FROM || 'noreply@resend.dev',
+      to: compra.email,
+      subject: `🎫 Seu ingresso LOCUNI PASS — ${compra.codigo}`,
       html
-    })
-    if (error) console.error('Erro Resend:', error)
-    else console.log('E-mail enviado:', data.id)
-    return !error
-  } catch (e) {
-    console.error('Falha no envio de e-mail:', e)
-    return false
+    });
+
+    console.log('📧 Email enviado para:', compra.email);
+  } catch (err) {
+    console.error('❌ Erro ao enviar email:', err.message);
   }
 }
 
-// E-mail de cortesia
-async function enviarCortesia(pedido) {
-  pedido.pagamento = 'CORTESIA'
-  pedido.total = 0
-  return enviarConfirmacao(pedido)
-}
-
-module.exports = { enviarConfirmacao, enviarCortesia }
+module.exports = { enviarEmailIngresso };
