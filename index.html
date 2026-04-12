@@ -1,0 +1,669 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LOCUNI PASS - Supabase Edition</title>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;700&display=swap" rel="stylesheet">
+  
+  <!-- SUPABASE SDK -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  
+  <style>
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    :root{
+      --bg:#080808;--surface:#111;--surface2:#181818;--surface3:#1f1f1f;
+      --border:#1e1e1e;--border-red:#2a0000;
+      --accent:#CC0000;--accent-bright:#FF2020;--accent-gold:#FFD700;
+      --text:#F0E8E8;--muted:#666;--green:#22c55e;--yellow:#eab308;--radius:12px;
+    }
+    html{scroll-behavior:smooth}
+    body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min-height:100vh;overflow-x:hidden}
+    body::before{content:'';position:fixed;inset:0;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");pointer-events:none;z-index:9998;opacity:0.5}
+
+    /* ── SUPABASE CONFIG PANEL ── */
+    .supabase-config{
+      position:fixed;
+      top:80px;
+      right:20px;
+      z-index:1000;
+      background:var(--surface2);
+      border:1px solid var(--accent);
+      border-radius:12px;
+      padding:20px;
+      max-width:350px;
+      box-shadow:0 8px 32px rgba(0,0,0,.8);
+    }
+    .supabase-config.hidden{display:none}
+    .supabase-config h3{
+      font-family:'Bebas Neue',sans-serif;
+      font-size:20px;
+      color:var(--accent-bright);
+      margin-bottom:15px;
+      letter-spacing:2px;
+    }
+    .supabase-config label{
+      display:block;
+      font-size:11px;
+      color:var(--muted);
+      text-transform:uppercase;
+      letter-spacing:1px;
+      margin-bottom:6px;
+      margin-top:12px;
+    }
+    .supabase-config input{
+      width:100%;
+      background:var(--surface);
+      border:1px solid #2a2a2a;
+      border-radius:8px;
+      color:var(--text);
+      padding:10px;
+      font-family:'DM Sans',sans-serif;
+      font-size:13px;
+      outline:none;
+    }
+    .supabase-config input:focus{border-color:var(--accent)}
+    .supabase-config .btn-save{
+      width:100%;
+      background:var(--accent);
+      color:#fff;
+      border:none;
+      padding:12px;
+      border-radius:8px;
+      font-weight:700;
+      font-size:13px;
+      cursor:pointer;
+      margin-top:15px;
+      transition:transform .2s;
+    }
+    .supabase-config .btn-save:hover{transform:translateY(-2px)}
+    .supabase-status{
+      margin-top:12px;
+      padding:10px;
+      border-radius:6px;
+      font-size:12px;
+      text-align:center;
+    }
+    .supabase-status.connected{
+      background:rgba(34,197,94,.1);
+      border:1px solid rgba(34,197,94,.3);
+      color:var(--green);
+    }
+    .supabase-status.disconnected{
+      background:rgba(204,0,0,.1);
+      border:1px solid rgba(204,0,0,.3);
+      color:var(--accent-bright);
+    }
+    .toggle-config-btn{
+      position:fixed;
+      top:20px;
+      right:20px;
+      z-index:1001;
+      background:var(--accent);
+      color:#fff;
+      border:none;
+      padding:10px 20px;
+      border-radius:100px;
+      font-weight:700;
+      font-size:12px;
+      cursor:pointer;
+      letter-spacing:1px;
+      box-shadow:0 4px 16px rgba(204,0,0,.4);
+    }
+
+    /* ── NAV PÚBLICO ── */
+    nav{position:fixed;top:0;left:0;right:0;z-index:100;display:flex;align-items:center;justify-content:space-between;padding:14px 48px;background:rgba(8,8,8,0.95);backdrop-filter:blur(20px);border-bottom:1px solid var(--border-red)}
+    .nav-logo{display:flex;align-items:center;gap:12px;text-decoration:none}
+    .nav-logo img{height:34px;filter:brightness(0) invert(1)}
+    .nav-logo-sub{font-family:'Bebas Neue',sans-serif;font-size:13px;letter-spacing:4px;color:var(--accent-bright);border-left:1px solid #2a0000;padding-left:12px}
+    nav ul{display:flex;gap:32px;list-style:none}
+    nav ul a{color:var(--muted);text-decoration:none;font-size:13px;font-weight:500;letter-spacing:1px;text-transform:uppercase;transition:color .2s}
+    nav ul a:hover{color:var(--text)}
+    .nav-cta{background:var(--accent)!important;color:#fff!important;padding:10px 24px;border-radius:100px;font-weight:700!important;transition:transform .2s,box-shadow .2s}
+    .nav-cta:hover{transform:translateY(-1px);box-shadow:0 8px 24px rgba(204,0,0,.5)}
+
+    /* Toast notifications */
+    .toast{position:fixed;bottom:24px;right:24px;z-index:9999;background:var(--surface2);border:1px solid var(--accent);color:var(--text);padding:16px 24px;border-radius:12px;font-size:14px;font-weight:500;box-shadow:0 8px 32px rgba(0,0,0,.8);animation:slideIn .3s ease;max-width:400px}
+    @keyframes slideIn{from{transform:translateX(400px);opacity:0}to{transform:translateX(0);opacity:1}}
+    @keyframes fadeUp{from{opacity:0;transform:translateY(30px)}to{opacity:1;transform:translateY(0)}}
+    
+    /* Additional styles from original file */
+    .hero{padding:160px 48px 100px;position:relative;overflow:hidden;min-height:100vh;display:flex;flex-direction:column;justify-content:center}
+    .hero-logo{width:260px;margin-bottom:36px;filter:brightness(0) invert(1);animation:fadeUp .7s ease both}
+    .hero h1{font-family:'Bebas Neue',sans-serif;font-size:clamp(64px,9vw,130px);line-height:.95;letter-spacing:2px;animation:fadeUp .7s .15s ease both;max-width:900px}
+    .hero h1 .accent{color:var(--accent-bright)}
+    .btn-primary{background:var(--accent);color:#fff;padding:16px 36px;border-radius:100px;font-weight:700;font-size:15px;cursor:pointer;border:none;text-decoration:none;display:inline-flex;align-items:center;gap:10px;transition:transform .2s,box-shadow .2s}
+    .btn-primary:hover{transform:translateY(-2px);box-shadow:0 12px 40px rgba(204,0,0,.5)}
+
+    /* Simple demo section */
+    .demo-section{padding:90px 48px;max-width:1200px;margin:0 auto}
+    .demo-section h2{font-family:'Bebas Neue',sans-serif;font-size:48px;letter-spacing:2px;margin-bottom:30px;color:var(--accent-bright)}
+    .demo-card{background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:30px;margin-bottom:20px}
+    .demo-card h3{font-size:20px;margin-bottom:15px;color:var(--accent-bright)}
+    .demo-card pre{background:var(--bg);padding:15px;border-radius:8px;overflow-x:auto;font-size:12px;color:var(--muted)}
+  </style>
+</head>
+<body>
+
+  <!-- Toggle Config Button -->
+  <button class="toggle-config-btn" onclick="toggleConfig()">⚙️ CONFIGURAR SUPABASE</button>
+
+  <!-- Supabase Configuration Panel -->
+  <div id="supabase-config-panel" class="supabase-config hidden">
+    <h3>🔧 Configuração Supabase</h3>
+    <label>Supabase URL</label>
+    <input type="text" id="supabase-url" placeholder="https://seu-projeto.supabase.co">
+    
+    <label>Supabase Anon Key</label>
+    <input type="password" id="supabase-key" placeholder="eyJhbGci...">
+    
+    <button class="btn-save" onclick="saveSupabaseConfig()">💾 Salvar e Conectar</button>
+    
+    <div id="supabase-status" class="supabase-status disconnected">
+      ⚠️ Não conectado - Configure suas credenciais acima
+    </div>
+  </div>
+
+  <!-- Navigation -->
+  <nav>
+    <a href="#" class="nav-logo">
+      <span class="nav-logo-sub">LOCUNI PASS</span>
+    </a>
+    <ul>
+      <li><a href="#eventos">Eventos</a></li>
+      <li><a href="#sobre">Sobre</a></li>
+      <li><a href="#contato">Contato</a></li>
+      <li><a href="#" class="nav-cta" onclick="showAdminLogin()">Admin</a></li>
+    </ul>
+  </nav>
+
+  <!-- Hero Section -->
+  <section class="hero">
+    <h1>
+      <span class="accent">LOCUNI</span><br>
+      <span class="stroke">PASS</span>
+    </h1>
+    <div style="margin-top:30px">
+      <button class="btn-primary" onclick="testSupabase()">🧪 Testar Conexão Supabase</button>
+    </div>
+  </section>
+
+  <!-- Demo Section -->
+  <section class="demo-section">
+    <h2>📊 Integração com Supabase</h2>
+    
+    <div class="demo-card">
+      <h3>✅ Recursos Habilitados</h3>
+      <ul style="line-height:2;color:var(--muted)">
+        <li>✓ Persistência de eventos em tempo real</li>
+        <li>✓ Gerenciamento de compradores/ingressos</li>
+        <li>✓ Sistema de cupons de desconto</li>
+        <li>✓ Check-in de participantes</li>
+        <li>✓ Dashboard administrativo</li>
+        <li>✓ Sincronização automática</li>
+      </ul>
+    </div>
+
+    <div class="demo-card">
+      <h3>🗄️ Estrutura de Tabelas Supabase</h3>
+      <p style="color:var(--muted);margin-bottom:15px">Crie as seguintes tabelas no seu projeto Supabase:</p>
+      
+      <h4 style="margin-top:20px;margin-bottom:10px;color:var(--text)">1. Tabela: eventos</h4>
+      <pre>
+CREATE TABLE eventos (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  nome TEXT NOT NULL,
+  data DATE NOT NULL,
+  local TEXT,
+  categoria TEXT,
+  descricao TEXT,
+  destaque BOOLEAN DEFAULT false,
+  imagem_url TEXT,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+      </pre>
+
+      <h4 style="margin-top:20px;margin-bottom:10px;color:var(--text)">2. Tabela: lotes</h4>
+      <pre>
+CREATE TABLE lotes (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  evento_id UUID REFERENCES eventos(id),
+  nome TEXT NOT NULL,
+  preco DECIMAL(10,2) NOT NULL,
+  quantidade_total INTEGER NOT NULL,
+  quantidade_vendida INTEGER DEFAULT 0,
+  ativo BOOLEAN DEFAULT true,
+  ordem INTEGER DEFAULT 0,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+      </pre>
+
+      <h4 style="margin-top:20px;margin-bottom:10px;color:var(--text)">3. Tabela: compradores</h4>
+      <pre>
+CREATE TABLE compradores (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  codigo_ingresso TEXT UNIQUE NOT NULL,
+  nome TEXT NOT NULL,
+  email TEXT NOT NULL,
+  telefone TEXT,
+  evento_id UUID REFERENCES eventos(id),
+  lote_id UUID REFERENCES lotes(id),
+  quantidade INTEGER NOT NULL,
+  total DECIMAL(10,2) NOT NULL,
+  cupom_usado TEXT,
+  checkin BOOLEAN DEFAULT false,
+  checkin_data TIMESTAMP,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+      </pre>
+
+      <h4 style="margin-top:20px;margin-bottom:10px;color:var(--text)">4. Tabela: cupons</h4>
+      <pre>
+CREATE TABLE cupons (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  codigo TEXT UNIQUE NOT NULL,
+  tipo TEXT NOT NULL, -- 'percent' ou 'fixed'
+  desconto DECIMAL(10,2) NOT NULL,
+  usos INTEGER DEFAULT 0,
+  limite INTEGER NOT NULL,
+  ativo BOOLEAN DEFAULT true,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+      </pre>
+
+      <h4 style="margin-top:20px;margin-bottom:10px;color:var(--text)">5. Tabela: configuracoes</h4>
+      <pre>
+CREATE TABLE configuracoes (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  chave TEXT UNIQUE NOT NULL,
+  valor JSONB,
+  updated_at TIMESTAMP DEFAULT NOW()
+);
+      </pre>
+    </div>
+
+    <div class="demo-card">
+      <h3>🔐 Configuração RLS (Row Level Security)</h3>
+      <p style="color:var(--muted);margin-bottom:15px">Para maior segurança, habilite RLS nas tabelas:</p>
+      <pre>
+-- Habilitar RLS em todas as tabelas
+ALTER TABLE eventos ENABLE ROW LEVEL SECURITY;
+ALTER TABLE lotes ENABLE ROW LEVEL SECURITY;
+ALTER TABLE compradores ENABLE ROW LEVEL SECURITY;
+ALTER TABLE cupons ENABLE ROW LEVEL SECURITY;
+ALTER TABLE configuracoes ENABLE ROW LEVEL SECURITY;
+
+-- Políticas para leitura pública (ajuste conforme necessário)
+CREATE POLICY "Permitir leitura pública de eventos"
+  ON eventos FOR SELECT
+  USING (true);
+
+CREATE POLICY "Permitir leitura pública de lotes"
+  ON lotes FOR SELECT
+  USING (true);
+
+-- Políticas de escrita apenas para usuários autenticados
+CREATE POLICY "Permitir inserção de compradores"
+  ON compradores FOR INSERT
+  WITH CHECK (true);
+      </pre>
+    </div>
+  </section>
+
+  <script>
+    // ══════════════════════════════════════════
+    // SUPABASE CONFIGURATION
+    // ══════════════════════════════════════════
+    let supabase = null;
+    let supabaseConnected = false;
+
+    // Load saved configuration from localStorage
+    function loadSupabaseConfig() {
+      const url = localStorage.getItem('supabase_url');
+      const key = localStorage.getItem('supabase_key');
+      
+      if (url && key) {
+        document.getElementById('supabase-url').value = url;
+        document.getElementById('supabase-key').value = key;
+        initializeSupabase(url, key);
+      }
+    }
+
+    // Initialize Supabase client
+    function initializeSupabase(url, key) {
+      try {
+        supabase = window.supabase.createClient(url, key);
+        supabaseConnected = true;
+        updateConnectionStatus(true);
+        showToast('✅ Supabase conectado com sucesso!');
+        return true;
+      } catch (error) {
+        console.error('Erro ao conectar Supabase:', error);
+        supabaseConnected = false;
+        updateConnectionStatus(false, error.message);
+        showToast('❌ Erro ao conectar Supabase: ' + error.message);
+        return false;
+      }
+    }
+
+    // Save configuration
+    function saveSupabaseConfig() {
+      const url = document.getElementById('supabase-url').value.trim();
+      const key = document.getElementById('supabase-key').value.trim();
+      
+      if (!url || !key) {
+        showToast('⚠️ Preencha URL e Key do Supabase');
+        return;
+      }
+      
+      localStorage.setItem('supabase_url', url);
+      localStorage.setItem('supabase_key', key);
+      
+      if (initializeSupabase(url, key)) {
+        document.getElementById('supabase-config-panel').classList.add('hidden');
+      }
+    }
+
+    // Update connection status display
+    function updateConnectionStatus(connected, errorMsg = '') {
+      const statusEl = document.getElementById('supabase-status');
+      if (connected) {
+        statusEl.className = 'supabase-status connected';
+        statusEl.textContent = '✅ Conectado ao Supabase';
+      } else {
+        statusEl.className = 'supabase-status disconnected';
+        statusEl.textContent = errorMsg 
+          ? `❌ Erro: ${errorMsg}` 
+          : '⚠️ Não conectado - Configure suas credenciais acima';
+      }
+    }
+
+    // Toggle configuration panel
+    function toggleConfig() {
+      const panel = document.getElementById('supabase-config-panel');
+      panel.classList.toggle('hidden');
+    }
+
+    // Test Supabase connection
+    async function testSupabase() {
+      if (!supabaseConnected) {
+        showToast('⚠️ Configure o Supabase primeiro!');
+        document.getElementById('supabase-config-panel').classList.remove('hidden');
+        return;
+      }
+
+      try {
+        showToast('🔄 Testando conexão...');
+        
+        // Test: Try to fetch eventos
+        const { data, error } = await supabase
+          .from('eventos')
+          .select('*')
+          .limit(5);
+        
+        if (error) {
+          showToast('❌ Erro ao buscar dados: ' + error.message);
+          console.error('Supabase error:', error);
+        } else {
+          showToast(`✅ Conexão OK! ${data.length} evento(s) encontrado(s)`);
+          console.log('Eventos:', data);
+        }
+      } catch (error) {
+        showToast('❌ Erro na conexão: ' + error.message);
+        console.error('Test error:', error);
+      }
+    }
+
+    // ══════════════════════════════════════════
+    // SUPABASE DATA OPERATIONS
+    // ══════════════════════════════════════════
+
+    // Fetch all eventos
+    async function fetchEventos() {
+      if (!supabaseConnected) return [];
+      
+      try {
+        const { data, error } = await supabase
+          .from('eventos')
+          .select('*')
+          .order('data', { ascending: true });
+        
+        if (error) throw error;
+        return data || [];
+      } catch (error) {
+        console.error('Erro ao buscar eventos:', error);
+        showToast('❌ Erro ao carregar eventos');
+        return [];
+      }
+    }
+
+    // Create new evento
+    async function createEvento(eventoData) {
+      if (!supabaseConnected) {
+        showToast('⚠️ Supabase não conectado');
+        return null;
+      }
+      
+      try {
+        const { data, error } = await supabase
+          .from('eventos')
+          .insert([eventoData])
+          .select();
+        
+        if (error) throw error;
+        showToast('✅ Evento criado com sucesso!');
+        return data[0];
+      } catch (error) {
+        console.error('Erro ao criar evento:', error);
+        showToast('❌ Erro ao criar evento: ' + error.message);
+        return null;
+      }
+    }
+
+    // Update evento
+    async function updateEvento(id, eventoData) {
+      if (!supabaseConnected) return null;
+      
+      try {
+        const { data, error } = await supabase
+          .from('eventos')
+          .update(eventoData)
+          .eq('id', id)
+          .select();
+        
+        if (error) throw error;
+        showToast('✅ Evento atualizado!');
+        return data[0];
+      } catch (error) {
+        console.error('Erro ao atualizar evento:', error);
+        showToast('❌ Erro ao atualizar evento');
+        return null;
+      }
+    }
+
+    // Delete evento
+    async function deleteEvento(id) {
+      if (!supabaseConnected) return false;
+      
+      try {
+        const { error } = await supabase
+          .from('eventos')
+          .delete()
+          .eq('id', id);
+        
+        if (error) throw error;
+        showToast('✅ Evento excluído!');
+        return true;
+      } catch (error) {
+        console.error('Erro ao excluir evento:', error);
+        showToast('❌ Erro ao excluir evento');
+        return false;
+      }
+    }
+
+    // Fetch compradores
+    async function fetchCompradores() {
+      if (!supabaseConnected) return [];
+      
+      try {
+        const { data, error } = await supabase
+          .from('compradores')
+          .select('*')
+          .order('created_at', { ascending: false });
+        
+        if (error) throw error;
+        return data || [];
+      } catch (error) {
+        console.error('Erro ao buscar compradores:', error);
+        return [];
+      }
+    }
+
+    // Create comprador
+    async function createComprador(compradorData) {
+      if (!supabaseConnected) return null;
+      
+      try {
+        const { data, error } = await supabase
+          .from('compradores')
+          .insert([compradorData])
+          .select();
+        
+        if (error) throw error;
+        showToast('✅ Compra registrada!');
+        return data[0];
+      } catch (error) {
+        console.error('Erro ao criar comprador:', error);
+        showToast('❌ Erro ao registrar compra');
+        return null;
+      }
+    }
+
+    // Update check-in
+    async function updateCheckin(compradorId, checkinStatus) {
+      if (!supabaseConnected) return false;
+      
+      try {
+        const { data, error } = await supabase
+          .from('compradores')
+          .update({ 
+            checkin: checkinStatus,
+            checkin_data: checkinStatus ? new Date().toISOString() : null
+          })
+          .eq('id', compradorId)
+          .select();
+        
+        if (error) throw error;
+        showToast(checkinStatus ? '✅ Check-in realizado!' : '↺ Check-in removido');
+        return true;
+      } catch (error) {
+        console.error('Erro ao atualizar check-in:', error);
+        showToast('❌ Erro ao atualizar check-in');
+        return false;
+      }
+    }
+
+    // Fetch cupons
+    async function fetchCupons() {
+      if (!supabaseConnected) return [];
+      
+      try {
+        const { data, error } = await supabase
+          .from('cupons')
+          .select('*')
+          .order('created_at', { ascending: false });
+        
+        if (error) throw error;
+        return data || [];
+      } catch (error) {
+        console.error('Erro ao buscar cupons:', error);
+        return [];
+      }
+    }
+
+    // Create cupom
+    async function createCupom(cupomData) {
+      if (!supabaseConnected) return null;
+      
+      try {
+        const { data, error } = await supabase
+          .from('cupons')
+          .insert([cupomData])
+          .select();
+        
+        if (error) throw error;
+        showToast('✅ Cupom criado!');
+        return data[0];
+      } catch (error) {
+        console.error('Erro ao criar cupom:', error);
+        showToast('❌ Erro ao criar cupom');
+        return null;
+      }
+    }
+
+    // Update cupom
+    async function updateCupom(id, cupomData) {
+      if (!supabaseConnected) return null;
+      
+      try {
+        const { data, error } = await supabase
+          .from('cupons')
+          .update(cupomData)
+          .eq('id', id)
+          .select();
+        
+        if (error) throw error;
+        return data[0];
+      } catch (error) {
+        console.error('Erro ao atualizar cupom:', error);
+        return null;
+      }
+    }
+
+    // ══════════════════════════════════════════
+    // UTILITY FUNCTIONS
+    // ══════════════════════════════════════════
+
+    function showToast(message) {
+      const existingToast = document.querySelector('.toast');
+      if (existingToast) {
+        existingToast.remove();
+      }
+      
+      const toast = document.createElement('div');
+      toast.className = 'toast';
+      toast.textContent = message;
+      document.body.appendChild(toast);
+      
+      setTimeout(() => {
+        toast.style.animation = 'slideIn .3s ease reverse';
+        setTimeout(() => toast.remove(), 300);
+      }, 3000);
+    }
+
+    function showAdminLogin() {
+      const password = prompt('Digite a senha de administrador:');
+      if (password === 'admin123') {
+        showToast('✅ Acesso concedido! (Funcionalidade admin em desenvolvimento)');
+      } else if (password) {
+        showToast('❌ Senha incorreta!');
+      }
+    }
+
+    // ══════════════════════════════════════════
+    // INITIALIZATION
+    // ══════════════════════════════════════════
+    document.addEventListener('DOMContentLoaded', function() {
+      loadSupabaseConfig();
+      
+      // Show welcome message
+      setTimeout(() => {
+        if (!supabaseConnected) {
+          showToast('👋 Configure o Supabase para começar!');
+        }
+      }, 1000);
+    });
+  </script>
+
+</body>
+</html>
